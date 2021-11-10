@@ -1,0 +1,255 @@
+
+
+qac.py summary and todo list
+
+class Register():
+    variables:
+    id
+    name_hints
+
+    methods:
+    trace()
+    .dim
+    __eq__()
+    substitute()
+
+------------------------------
+
+class QAC():
+    variables:
+    scale = 1
+    instrs = []
+    scope_inputs/outputs = {}
+    unnamed_inputs/outputs = []
+    parent
+
+    methods:
+
+----------------------------
+    # Register manipulation
+
+    parentGet(name)
+        # get the register object that my parent, or
+        # any of my parent's parents has a key
+
+    parentHas(name)
+        # does my parent, or any of my parent's parents
+        # have this name as a key?
+
+    promote(name)
+        # my parents have this key and I dont.
+        # put that name into my scope_io.
+    
+    tmpname(name)
+        # make a temporary name of the form name1, name2, name3
+        # useful for invoking other methods
+        # that take a name rather than a register object as an argument
+
+----------------------------
+    # QAC Bindings
+    # these map directly to a qac command
+
+    # TODO: which of these are actually used?
+    # which of these are used by qac.py? which by runtime.py?
+    
+    declare(name,dim,slots=None) 
+    discard(name)
+    zero 
+    unitary
+    phase
+
+----------------------------
+    # Increment
+
+    increment(regname,expn)
+        expn contains references to variables
+        {"kind":"named_register_expn", "name":"x", "key": None, <int> or "k"}
+        convert these into
+        {"kind": "register_expn", "register":<reg> }
+
+        if key is None, <reg> is scope_outputs["x"]
+        if key is <int>, <reg> is scope_outputs["x"][<int>]
+        if key is a variable: most complicated case
+            into array_refs insert:
+                {"target": new Register(), "key":"k", "sources":scope_outputs["x"]}
+        
+        then build the circuit:
+            for each array_ref:
+                array_ref["target"] += "k"'th scope_outputs["x"]
+            regname += expn
+            for each array_ref:
+                array_ref["target"] += "k"'th scope_outputs["x"]
+
+    increment_array_fixed(regname, idx, expn) 
+        make a temporary name to hold regname[idx]
+        the just invoke self.increment
+
+    increment_array_variable(regname, keyname, expn)
+        make a temporary register
+        conditionally swap regname[key] into that temporary register
+        increment temporary register
+        uncompute temporary register
+
+----------------------------
+    # Symmetrization
+
+    symmetrize():
+        assert no unnamed_io
+        assert scope_inputs.keys() == scope_outputs.keys()
+        
+        for each key, unless scope_input[key] == scope_output[key]: 
+            make a new register new_reg
+            rename new_reg scope_input[key]
+            ... block ...
+            rename scope_input[key] new_reg
+            scope_io[key] = new_reg
+
+    this implementation is somewhat lazy: sometimes
+    there is a simpler circuit using swaps that achieves the same effect
+    with fewer gates and better readability.
+
+    it could also be optimized to check if we can just call
+    scope_input[key].substitute(scope_output[key])
+        
+----------------------------
+    # IF STATEMENTS
+
+    if_statement(ctrlname, qac)
+        ctrlname does not point to an array
+        qac has no unnamed_io, only scope_io
+        qac.symmetrize_scope()
+        
+        if qac's scale is not 1,
+        deal with this via postselection
+         
+    # controls [{"expn":<expn>, "qac":<qac>}]
+    compound_if_statement(self, controls, else_qac=None) 
+        if len(controls) == 1:
+            # simple case: if / if.else
+            declare flag
+            flag += controls[0]["expn"]
+            if_statement(flag, controls[0]["qac"])
+            if else_qac is None:
+                flag += controls[0]["expn"]
+            else:
+                flag += 1
+                if_statement(flag, else_qac)
+                flag += controls[0]["expn"] + 1
+            zero flag
+
+        # complex case: if.elif.elif.else
+        qacs = [list of instruction blocks]
+       
+        declare flag, prv_count
+        for i in range(len(controls)):
+            flag += controls[i]["expn"] * (prv_count == 0)
+            if_statement(flag, controls[i]["qac"])
+            flag += controls[i]["expn"] * (prv_count == 0)
+
+            flag += controls[i]["expn"]
+            if flag: prv_count += 1
+            flag += controls[i]["expn"]
+
+        if else_expn is not None:
+            flag += (prv_count == 0)
+            if_statement(flag, else_expn)
+            
+        # this does not need to be in reverse actually
+        for i in range(len(controls)):
+            flag += controls[i]["expn"]
+            if flag: prv_count -= 1
+            flag += controls[i]["expn"]
+
+
+----------------------------
+    # REPEAT STATEMENTS
+
+    repeat_fixed(qac,count) 
+        qac has no unnamed_io
+        qac.symmetrize_scope()
+        for i in range(count):
+            self.scale *= qac.scale
+            self.instrs += block_copy(qac)
+
+    repeat_variable(qac,regname) 
+        qac has no unnamed_io
+        qac.symmetrize_scope()
+        
+        count = scope_outputs[regname]
+        for i in range(count.dim):
+            if_statement(i < count, copy_block(qac))
+
+---------------------------
+    # SCALAR and INIT
+
+    scalar_instr(qac)
+        qac has no unnamed_io (it's a scalar!)
+        substitute qac.scope_inputs, and delete the keys in self.scope_outputs
+        replace any keys in qac.scope_outputs
+
+    init_names(target_names,qac)
+        names are keys in unnamed_outputs of the right shape
+
+        substitute qac.scope_inputs, and delete the keys in self.scope_outputs
+        replace any keys in qac.scope_outputs
+
+        discard any targets that are still in scope
+        self.scope_outputs[target_name] = qac.scope_outputs[target_name]
+
+
+    [{"target":"name", "key":<int>, "name" or None}]
+    init_instr(targets, qac)
+        if target["target"] is an array and target["key"] is a register:
+            make a new register with a temporary name
+            swap the key'th array element to that register
+        invoke init_names
+        uncompute the temporary registers
+
+---------------------------- 
+    # ASSIGN
+
+    assign(regname,expn,undo=None) TODO
+    assign_array_fixed(arrayname,key,expn) TODO
+    assign_array_variable(arrayname,keyname,expn) TODO
+
+---------------------------- 
+    # new blocks with this one as parent
+    
+    block_scalar(parent,c)
+    block_create(parent, expn, dim)
+    block_consume(parent,name)
+    block_cast(parent,name,key)
+
+    block_userspace(parent, blq) TODO.
+
+-------------------
+
+block_add(*blocks)
+    - Can be tightened up a lot, but it should work.
+    - One way to tighten this up would be to determine
+        per input/output pair, per block, if you actually
+        need to do the double-initialization trick.
+
+block_mul(b1,b2)
+    - Uses substitute to connect the two unitaries
+
+block_exponent(b,n) 
+    - could simplify this to just call repeat
+
+block_exponent_index(b,idx) 
+    - can basically just call repeat
+
+block_tensorexponent(b,n) 
+block_tensor(b1,b2)
+block_adjoint(b) 
+block_copy(b) 
+
+==============================================
+
+Q: is the substitution stuff really necessary when you have the relabel primitive?
+Q: what code actually uses substitution?
+Q: are there situations where relabel is necessary, and substitution/swap cant do the job?
+    - Conditional relabels may be the answer.
+
+
+

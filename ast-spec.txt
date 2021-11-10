@@ -1,0 +1,87 @@
+
+# <instruction>:
+#    { "kind": "declare_instruction",  "identifier": <identifier>, "dim": <comp-expn>, "slots": <None or comp-expn>, "loc":<loc>}
+#    declare <identifier>:<regtype>
+
+#    { "kind": "discard_instruction",  "identifiers": [<identifier>], "loc":<loc> }
+#    discard <identifier>, <identifier>
+
+#    { "kind": "uncompute_instruction",  "identifiers": [<identifier>], "loc":<loc> }
+#    uncompute <identifier>
+
+#    { "kind": "scalar_instruction",  "expn": <block-expn>, "loc":<loc> }
+#    scalar <block-expn>
+
+#    { "kind": "pass_instruction",  "loc":<loc> }
+#    pass
+
+#    { "kind": "repeat_instruction",  "expn": <index-expn>, "instructions",[], "loc":<loc> }
+#    repeat <index-expn>: <instrs>
+
+#    { "kind": "if_instruction",  "conditions": [{"condition":<scalar-expn>, "instructions",[]}], "else": [], "loc":<loc> }
+#    if <scalar-expn>: <instrs>
+#    elif <scalar-expn>: <instrs>
+#    else: <instrs>
+
+# "key" <expn> must be known at compile time or just be an identifier
+#    { "kind": "init_instruction", "targets":[{"target":<identifier>, "key":<index-expn> or None}], "expn":<block-expn>, "loc":<loc> }
+#    <ident> @ <ident>[<index-expn>] <- <block-expn>
+
+# "key" <expn> must be known at compile time or just be an identifier
+#    { "kind": "assign_instruction", "target":<identifier>, "key":<index-expn> or None, "expn":<scalar-expn>, "undo":<scalar-expn> or None, "loc":<loc> }
+#    <ident> = <scalar-expn>
+#    <ident>[<index-expn>] = <scalar-expn>  # expn cant refer to the identifier, bc that array has been manipulated in order to write to it
+#    <ident> = <scalar-expn> undo <scalar-expn>
+# Not supported, because its not clear what the undo-expn would use to refer to the register.
+#    <ident>[<index-expn>] = <scalar-expn> undo <scalar-expn> 
+
+#    { "kind": "increment/decrement_instruction", "target":<identifier>, "key":<index-expn> or None, "expn":<scalar-expn>, "loc":<loc> }
+#    <ident>[<index-expn>] += <scalar-expn>
+#    <ident>[<index-expn>] -= <scalar-expn>
+
+
+
+##################################### <expn>
+# {"kind":"symbol_expression", "identifier": <identifier>, "key": <index-expn>/None, "loc":<loc> }
+#   <identifier>
+#   <identifier>[<index-expn>]
+
+# {"kind":"scalar_expression", "value": <value>, "loc":<loc> }
+#   <extern> or <literal>
+
+# {"kind":"block_expression", "value": <value>, "loc":<loc> }
+#   <extern>
+
+# {"kind":"consume_expression", "identifier": <identifier>, "loc":<loc> }
+#   |<ident>
+
+# {"kind":"create_expression", "expn": <scalar-expn>, "dim":<comp-expn> or None, "loc":<loc> }
+#   ket(<expn>, <expn>) or just ket(<expn>)
+
+# {"kind":"adjoint_expression", "expn": <block-expn>, "loc":<loc> }
+#   ~<expn>  adjoint
+
+# {"kind":"parenthetical_expression", "expn": <expn>, "loc":<loc> }
+#   (<expn>)
+
+
+# removed
+#   +<expn>
+
+# {"kind":"negate_expression", "expn": <expn>, "loc":<loc> }
+#   -<expn>
+
+# arithmetic is temporarily:
+# {"kind":"arithmetic_expression", "terms": [<expn>, <symbol_token>, <expn>, ... <expn> ], "loc":<loc> }
+# afterward converted to:
+# {"kind":"boolean_expression", "terms": [<expn>, <symbol_token>, <expn>, ... <expn> ], "loc":<loc>  }
+#    where <symbol_token> is one of ==, !=, >, <, >=, <=
+# {"kind":"sum_expression", "terms": [<expn>, <expn>, <expn>], "loc":<loc> }
+# {"kind":"tensorproduct_expression", "terms": [<expn>, <expn>, <expn>], "loc":<loc> }
+# {"kind":"product_expression", "terms": [<expn>, <expn>, <expn>], "loc":<loc> }
+# {"kind":"division_expression", "dividend": <expn>, "divisor": <comp-expn>, "loc":<loc> }
+# {"kind":"modulo_expression", "dividend": <scalar-expn>, "divisor": <comp-expn>, "loc":<loc> }
+# {"kind":"exponent_expression", "base": <expn>, "exponent": <expn>/<index-expn>, "loc":<loc> }
+# {"kind":"tensorexponent_expression", "base": <block-expn>, "exponent": <comp-expn>, "loc":<loc> }
+
+

@@ -1,0 +1,133 @@
+
+
+# TODO: maybe get rid of rough typing.
+# This easier to do at run time when you are actually evaluating things.
+
+# controls, scope <- globals
+# might need scope to deal with if,else,repeat etc
+# rough type (need backtrace)
+def analyze_expn(ast):
+    returns rough_type, consume_expressions, linear_references
+
+##################### type restrictions
+- known at compile time
+- must be scalar
+
+####################### list indexes
+- can't consume in a list index
+- list index must either be exactly a linear reference or known at compile time
+- must be scalar
+- can't be an array itself
+- to check seperately: needs to act on an array. arrays need list indices.
+
+#################### expressions
+# symbol expression
+- undeclared identifier
+- list index restrictions
+
+# scalar
+
+# block
+
+# consume
+- undeclared identifier
+- can't consume non-linear symbol
+
+# create
+- type restrictions
+- expn must be scalar
+
+# adjoint
+- can't consume in an adjoint expression
+- can either be a block or a scalar.
+
+# paren
+# negate
+
+# boolean
+- args must be scalars
+
+# sum
+- can't consume in a sum expression
+
+# tensorprod
+- args must be blocks
+
+# product
+
+# division
+- divisor must be known at compile time
+
+# modulo
+- both must be scalar
+- divisor must be known at compile time
+
+# exponent expression
+- exponent list index restrictions, if base is a block
+- otherwise, exponent should be a scalar
+
+# tensorexponent expression
+- base must be block
+- exponent list index restrictions
+
+########################## general restrictions for linear expressions in instructions
+- can't consume a linear symbol and also reference it
+- can't consume something that is being controlled
+- can only consume something once per expression
+
+################ instructions
+# declare
+- can't override a symbol with a declaration
+- type restrictions
+
+# discard/uncompute
+- can't <verb> an undefined symbol
+- can't <verb> a symbol that's being controlled
+- can't <verb> a non-linear symbol
+
+# scalar
+- (scalar expns are fine here because I can just cast)
+
+# pass
+
+# repeat_instruction
+- list index restrictions
+- new linear symbol present at end of repeat block, defined at
+- linear symbol no longer present at end of repeat block, removed at
+
+# if_instruction
+- must be scalar
+- new linear symbol present at end of if block, defined at
+- linear symbol no longer present at end of if block
+
+# init_instruction
+- target must be a register, arrays needs indices
+- can't initialize symbol twice in the same init instruction
+- can't initialize undefined symbol
+- can't override a symbol being controlled
+- can't override a non-linear symbol
+- list index restrictions
+- can't use a symbol in a list index if it is also being initialized
+- expn must be block. (I can't cast here, because it needs to be a vector.)
+
+# assign_instruction, similar for increment and decrement
+- can't assign to undefined symbol
+- can't override a symbol being controlled
+- can't override a non-linear symbol
+- list index restrictions
+- can't use a symbol in a list index if it is also being assigned to
+    ^ this should be covered by array checks
+
+- if increment or decrement or array assign, can't refer to the target
+- expn must be scalar
+- undo must be scalar
+
+
+
+###################### main
+- can't override symbols
+- type restrictions
+- linear symbol still present at end of scope and is not an output
+- output symbol is not present at end of scope
+
+

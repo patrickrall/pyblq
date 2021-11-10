@@ -1,0 +1,194 @@
+
+# scoping.py handles variable well-defined-ness
+# runtime.py handles rough type checking
+
+# How to turn ast expresions into qac?
+
+# As specified in the ast-spec: four 'kinds' of expressions
+# <comp-expn> value known at compile time
+#          Supports: {"value_expn"}
+# <index-expn> either a nonnegative integer value known at compile time, or exactly an unkeyed identifier
+#          Supports: {"value_expn"} or {"named_register_expn", with no key}
+# <scalar-expn> expression is defs a scalar
+#          Supports: {"*_expn"}
+# <block-expn> expression evaluates to QAC, or exactly an identifier or keyed identifier
+#          Supports: QAC or {"value_expn"} or {"named_register_expn", key optional}
+
+# <comp-expn>,<index-expn> are both just extra constraints on top of <scalar-expn>
+# Thus, can split into two 'modes':
+# Block mode: kind is <block-expn>
+# Scalar mode: kind is <scalar-expn>,<comp-expn>,<index-expn> 
+
+
+# {"kind":"symbol_expression", "identifier": <identifier>, "key": <index-expn>/None, "loc":<loc> }
+#   <identifier>
+#   <identifier>[<index-expn>]
+# Note: this also resolves kwargs, which could be QAC or complex.
+# If we are in block mode:
+#   Input:
+#       Kwarg can be either QAC or complex.
+#       Key: <index-expn> or None. Check in range.
+#   Returns:
+#       <block-expn>: QAC, {"value_expn"}, or {"named_register_expn", key optional}
+# If we are in scalar mode:
+#   Input:
+#       Kwarg must be complex.
+#       Key: <index-expn> or None. Check in range.
+#   Returns:
+#       <scalar-expn>: {"value_expn"} or {"named_register_expn", key optional}
+
+# {"kind":"scalar_expression", "value": <value>, "loc":<loc> }
+#   <extern> or <literal>
+# Can be in either block or scalar mode.
+# Returns: {"value_expn'}
+
+# {"kind":"block_expression", "value": <value>, "loc":<loc> }
+#   <extern>
+# Must be in block mode.
+# Returns: <block-expn>: QAC
+
+# {"kind":"consume_expression", "identifier": <identifier>, "loc":<loc> }
+#   |<ident>
+# Must be in block mode.
+# Returns: <block-expn>: QAC
+
+# {"kind":"create_expression", "expn": <scalar-expn>, "dim":<comp-expn> or None, "loc":<loc> }
+#   ket(<expn>, <expn>) or just ket(<expn>)
+# Must be in block mode.
+# Input:
+#    expn: <scalar-expn>
+#    dim: <comp-expn> Also check that its >= 2.
+# Returns: 
+#    <block-expn>: QAC
+
+
+# {"kind":"adjoint_expression", "expn": <block-expn>, "loc":<loc> }
+#   ~<expn>  adjoint
+# If we are in block mode:
+#   Input:
+#       <block-expn> 
+#   Returns:
+#       <block-expn>: 
+#           QAC, {"value_expn"}, or {"named_register_expn", key optional}
+#           (Adjoint of a named_register_expn) is just itself.
+# If we are in scalar mode:
+#   Input:
+#       <scalar-expn>
+#   Returns:
+#       <scalar-expn>: {"value_expn"} or {"adjoint_expn"}
+#           (Can perhaps simplify a bit, if result is guaranteed real? Let's not bother for now.)
+
+
+# {"kind":"parenthetical_expression", "expn": <expn>, "loc":<loc> }
+#   (<expn>)
+# Identity.
+
+# {"kind":"negate_expression", "expn": <expn>, "loc":<loc> }
+#   -<expn>
+# If we are in block mode:
+#   Input:
+#       <block-expn> 
+#   Returns:
+#       <block-expn>: {"value_expn"} or QAC
+# If we are in scalar mode:
+#   Input:
+#       <scalar-expn>
+#   Returns:
+#       <scalar-expn>: {"value_expn"} or {"negate_expn"}
+
+
+# {"kind":"boolean_expression", "terms": [<expn>, <symbol_token>, <expn>, ... <expn> ], "loc":<loc>  }
+#    where <symbol_token> is one of ==, !=, >, <, >=, <=
+# If we are in block mode: (we can cast this expression since it is bounded)
+# Inputs:
+#     <scalar-expn>
+# Returns:
+#     <block-expn>: {"value_expn"} or QAC
+# If we are in scalar mode:
+# Inputs:
+#     <scalar-expn>
+# Returns:
+#     <scalar-expn>: {"value_expn"} or {"boolean_expn"}
+
+
+# {"kind":"sum_expression", "terms": [<expn>, <expn>, <expn>], "loc":<loc> }
+# If we are in block mode:
+#   Inputs:
+#       <block-expn> 
+#   Returns:
+#       <block-expn>: {"value_expn"} or QAC
+# If we are in scalar mode:
+#   Inputs:
+#     <scalar-expn>
+#   Returns:
+#     <scalar-expn>: {"value_expn"} or {"sum_expn"}
+
+
+# {"kind":"tensorproduct_expression", "terms": [<expn>, <expn>, <expn>], "loc":<loc> }
+# We have to be in block mode.
+# (Technically if all of the terms are scalars then this is a scalar, but then just use multiplication.)
+# Input:
+#    <block-expn>
+# Returns:
+#    <block-expn>: {"value_expn"} or QAC
+
+
+# {"kind":"product_expression", "terms": [<expn>, <expn>, <expn>], "loc":<loc> }
+# If we are in block mode:
+#   Input:
+#       <block-expn>
+#   Returns:
+#       <block-expn>: {"value_expn"} or QAC
+# If we are in scalar mode:
+#   Input:
+#     <scalar-expn>
+#   Returns:
+#     <scalar-expn>: {"value_expn"} or {"product_expn"}
+
+
+# {"kind":"division_expression", "dividend": <expn>, "divisor": <comp-expn>, "loc":<loc> }
+# If we are in block mode:
+#   Input:
+#     Dividend: <block-expn>
+#     Divisor: <comp-expn> Must be nonzero.
+#   Returns:
+#     <block-expn>: {"value_expn"} or QAC    
+# If we are in scalar mode:
+#   Input:
+#     Dividend: <scalar-expn>
+#     Divisor: <comp-expn> Must be nonzero.
+#   Returns:
+#     <scalar-expn>: {"value_expn"} or {"division_expn"}
+
+# {"kind":"modulo_expression", "dividend": <scalar-expn>, "divisor": <comp-expn>, "loc":<loc> }
+# We must be in scalar mode.
+#   Input:
+#     Dividend: <scalar-expn>
+#     Divisor: <comp-expn> Must furthermore be a positive integer.
+#   Returns:
+#     <scalar-expn>: {"value_expn"} or {"division_expn"}
+
+# {"kind":"exponent_expression", "base": <expn>, "exponent": <expn>/<index-expn>, "loc":<loc> }
+# If we are in block mode:
+#   Input:
+#     Base: <block-expn>
+#     Exponent: <index-expn> if base was actually a block, otherwise <>
+#   Returns:
+#     <block-expn>: {"value_expn"} or QAC
+# If we are in scalar mode:
+#   Input:
+#     Base: <scalar-expn>
+#     Exponent: <scalar-expn>
+#   Returns:
+#     <scalar-expn>: {"value_expn"} or {"exponent_expn"}
+
+
+# {"kind":"tensorexponent_expression", "base": <block-expn>, "exponent": <comp-expn>, "loc":<loc> }
+# We have to be in block mode.
+# (Technically if the base is a scalar then this is a scalar, but then juse use exponent.)
+# Input:
+#     Base: <block-expn>
+#     Exponent: <comp-expn> Must furthermore be a positive integer.
+# Returns:
+#     <block-expn>: {"value_expn"} or QAC
+

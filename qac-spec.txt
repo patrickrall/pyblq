@@ -1,0 +1,47 @@
+
+<instr>:
+    # these maybe get generated when you turn to a string, but are not part of the bytecode
+    input <ident>:<dim>, <ident>:<dim>
+    output <ident>, <ident>
+
+    declare <identifier> : <positive integer literal>   # {"kind":"qac_declare", "reg":<register>, "dim":<int>}
+    discard <identifier>                                # {"kind":"qac_discard", "reg":<register>}
+    maxmixed <identifier> : <positive integer literal>  # {"kind":"qac_maxmixed", "reg":<register>, "dim":<int>}
+    zero <identifier>                                   # {"kind":"qac_zero", "reg":<register>}
+    <identifier> += <expn>                              # {"kind":"qac_increment", "reg":<register>, "expn":<expn>}
+    unitary [[0,1],[1,0]] <identifier>                  # {"kind":"qac_unitary", "reg":<register>, "mat":<matrix>}
+    phase <complex lit with mag 1>                      # {"kind":"qac_phase", "value":<complexnr>}
+    swap <reg1> <reg2>                                  # {"kind":"qac_swap", "reg1":<register>, "reg2": <register>}
+    rename <source> <target>                            # {"kind":"qac_rename", "source":<register>, "target": <register>}
+    if <identifier>:                                    # {"kind":"qac_if", "cond":<register>, "instructions":[<instrs>] }
+        <instr \n>
+    pass                                                # lexical only
+
+
+
+# conditional renaming
+# qac_rename is totally allowed inside of a qac_if.
+# However, the block inside the if statement must still be symmetric: same regs before as after!
+
+
+
+<expn>:
+    <identifier>        # {"kind": "register_expn", "register":<reg> }
+                        # {"kind": "named_register_expn", "name":<string>, "key": None/<int>/or <string> }
+    <complex literal>   # {"kind": "value_expn", "value":5j}
+    <expn> + <expn>     # {"kind": "sum_expn", "terms":[<linexp>] }
+    -<expn>             # {"kind": "negate_expn", "expn":<linexp> }
+    ~<expn>             # {"kind": "adjoint_expn", "expn":<linexp> }
+    <expn> * <expn>     # {"kind": "product_expn", "terms":[<linexp>] }
+    <expn> / <expn>     # {"kind": "division_expn", "dividend":<linexp>, "divisor":5j }
+    <expn> % <expn>     # {"kind": "modulo_expn", "dividend":<linexp>, "divisor":5 }
+                        # {"kind": "boolean_expn", "terms":[<linexp>, <string>, <linexp>, <string>, ...] }
+                        # <string> is one of ==, !=, >, <, >=, <=
+    <expn> == <expn>
+    <expn> != <expn>
+    <expn> > <expn>
+    <expn> < <expn>
+    <expn> >= <expn>
+    <expn> <= <expn>
+
+
