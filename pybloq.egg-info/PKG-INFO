@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: pybloq
+Version: 0.0.1
+Summary: Bloq Encoding for Qubits
+Home-page: https://github.com/patrickrall/pyblq
+Author: Patrick Rall
+License: MIT License
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# pyblq
+
+An implementation of a quantum programming language based on block encodings. Has lots of other ideas in it too. No documentation yet though.
